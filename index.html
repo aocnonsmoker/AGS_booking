@@ -393,7 +393,7 @@ function fmt(val) {
 function renderTable(type) {
   const tbody = document.getElementById(`${type}-tbody`);
   const label = type === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking';
-  const rows = allRecords.filter(r => r['Sheet'] === label);
+  const rows = allRecords.filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2));
   tbody.innerHTML = '';
   if (rows.length === 0) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No bookings yet. Click <strong>New</strong> to add one.</td></tr>`;
@@ -403,8 +403,8 @@ function renderTable(type) {
       tr.innerHTML = `
         <td class="no">${i+1}</td>
         <td>${r['Staff Name'] || '—'}</td>
-        <td>${fmt(r['Start Time'])}</td>
-        <td>${fmt(r['End Time'])}</td>
+        <td>${fmt(r['Date & Start Time'] || r['Start Time'])}</td>
+        <td>${fmt(r['Date & End Time'] || r['End Time'])}</td>
         <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r['Timestamp'] || '—'}</td>`;
       tbody.appendChild(tr);
     });
@@ -473,15 +473,15 @@ async function addRecord() {
   const lbl = document.getElementById('btn-label');
   btn.disabled = true; lbl.textContent = 'Saving...';
 
-  const sheetName = activeTab === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking';
+  const sheetNum = activeTab === 'room' ? 1 : 2;
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet: sheetName, name, start, end })
+      body: JSON.stringify({ sheet: sheetNum, name, start, end })
     });
-    allRecords.push({ 'Sheet': sheetName, 'Staff Name': name, 'Start Time': start, 'End Time': end, 'Timestamp': new Date().toLocaleString() });
+    allRecords.push({ 'Sheet': sheetNum, 'Staff Name': name, 'Date & Start Time': start, 'Date & End Time': end, 'Timestamp': new Date().toLocaleString() });
     renderTable(activeTab);
     closeModal();
     showToast('Booking saved to Google Sheets ✓', 'success');
