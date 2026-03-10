@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Booking Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -46,22 +45,51 @@
   .logo span { color: var(--room-a); }
   .subtitle { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-  .export-btn {
-    background: var(--text);
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
+  .config-bar {
+    max-width: 1100px;
+    margin: 0 auto 20px;
+    background: #fffbeb;
+    border: 1.5px dashed #f59e0b;
     border-radius: var(--radius);
-    font-family: 'Syne', sans-serif;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    transition: opacity .2s;
+    gap: 12px;
+    flex-wrap: wrap;
   }
-  .export-btn:hover { opacity: .8; }
+  .config-bar label {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: #92400e;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .config-bar input {
+    flex: 1;
+    min-width: 200px;
+    border: 1.5px solid #fcd34d;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    background: #fff;
+    outline: none;
+  }
+  .config-bar input:focus { border-color: #f59e0b; }
+  .save-url-btn {
+    padding: 7px 14px;
+    background: #f59e0b;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .save-url-btn:hover { background: #d97706; }
+  .config-note { font-size: 11px; color: #92400e; font-style: italic; width: 100%; }
 
   .tabs {
     max-width: 1100px;
@@ -69,7 +97,6 @@
     display: flex;
     gap: 4px;
     border-bottom: 2px solid var(--border);
-    padding-bottom: 0;
   }
 
   .tab {
@@ -111,35 +138,30 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .panel-title {
-    font-size: 16px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .panel-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
 
-  .badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border-radius: 20px;
-  }
+  .badge { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
   #room-panel .badge { background: var(--room-light); color: var(--room-h); }
   #zoom-panel .badge { background: var(--zoom-light); color: var(--zoom-h); }
 
+  .panel-actions { display: flex; gap: 8px; align-items: center; }
+
+  .refresh-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 9px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-family: 'Syne', sans-serif;
+    font-weight: 600; font-size: 12px; cursor: pointer;
+    background: #fff; color: var(--muted); transition: all .2s;
+  }
+  .refresh-btn:hover { border-color: var(--text); color: var(--text); }
+  .refresh-btn.spinning svg { animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   .new-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 18px;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 18px; border: none; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 13px; cursor: pointer;
     transition: transform .15s, box-shadow .15s;
   }
   .new-btn:active { transform: scale(.97); }
@@ -148,176 +170,96 @@
   #zoom-panel .new-btn { background: var(--zoom-a); color: #fff; box-shadow: 0 2px 8px rgba(84,130,53,.35); }
   #zoom-panel .new-btn:hover { box-shadow: 0 4px 16px rgba(84,130,53,.45); }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  thead tr {
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    color: #fff;
-  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { font-size: 11px; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .06em; color: #fff; }
   #room-panel thead tr { background: var(--room-a); }
   #zoom-panel thead tr { background: var(--zoom-a); }
-
   th { padding: 12px 16px; text-align: left; font-weight: 500; }
   th:first-child, td:first-child { width: 56px; text-align: center; }
-  th:last-child, td:last-child { width: 80px; text-align: center; }
 
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background .15s;
-  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
   tbody tr:nth-child(even) { background: #f8f9fb; }
   tbody tr:hover { background: #eef2ff; }
-  tbody tr.editing { background: #fffbeb !important; }
-
   td { padding: 11px 16px; vertical-align: middle; }
   td.no { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
 
-  td input {
-    width: 100%;
-    border: 1.5px solid var(--border);
-    border-radius: 6px;
-    padding: 5px 8px;
-    font-family: 'Syne', sans-serif;
-    font-size: 13px;
-    outline: none;
-    transition: border-color .2s;
-    background: #fff;
-  }
-  td input:focus { border-color: var(--room-a); }
-  #zoom-panel td input:focus { border-color: var(--zoom-a); }
-
-  .action-btns { display: flex; gap: 6px; justify-content: center; }
-
-  .icon-btn {
-    width: 28px; height: 28px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
-    transition: all .15s;
-  }
-  .save-btn { background: #d1fae5; color: #065f46; }
-  .save-btn:hover { background: #6ee7b7; }
-  .del-btn { background: #fee2e2; color: #991b1b; }
-  .del-btn:hover { background: #fca5a5; }
-  .edit-btn { background: #e0e7ff; color: #3730a3; }
-  .edit-btn:hover { background: #a5b4fc; }
-
-  .empty-row td {
-    text-align: center;
-    color: var(--muted);
-    font-size: 13px;
-    padding: 32px;
-    font-style: italic;
+  .empty-row td, .loading-row td {
+    text-align: center; color: var(--muted);
+    font-size: 13px; padding: 40px; font-style: italic;
   }
 
-  /* Modal */
+  .spinner {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid var(--border); border-top-color: var(--room-a);
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+
   .modal-backdrop {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.45);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+    z-index: 100; align-items: center; justify-content: center;
   }
   .modal-backdrop.open { display: flex; }
 
   .modal {
-    background: #fff;
-    border-radius: 16px;
-    width: 420px;
-    max-width: 95vw;
-    box-shadow: 0 24px 80px rgba(0,0,0,.25);
-    overflow: hidden;
-    animation: modalIn .2s cubic-bezier(.34,1.56,.64,1);
+    background: #fff; border-radius: 16px; width: 420px;
+    max-width: 95vw; box-shadow: 0 24px 80px rgba(0,0,0,.25);
+    overflow: hidden; animation: modalIn .2s cubic-bezier(.34,1.56,.64,1);
   }
   @keyframes modalIn { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
   .modal-head {
-    padding: 20px 24px 16px;
-    font-size: 17px;
-    font-weight: 800;
+    padding: 20px 24px 16px; font-size: 17px; font-weight: 800;
     border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: flex; align-items: center; gap: 10px;
   }
-  .modal-head .dot {
-    width: 10px; height: 10px; border-radius: 50%;
-  }
+  .modal-head .dot { width: 10px; height: 10px; border-radius: 50%; }
   .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
 
   .field label {
-    display: block;
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    text-transform: uppercase;
-    letter-spacing: .07em;
-    color: var(--muted);
-    margin-bottom: 5px;
+    display: block; font-size: 11px; font-family: 'DM Mono', monospace;
+    text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 5px;
   }
   .field input {
-    width: 100%;
-    border: 1.5px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 12px;
-    font-family: 'Syne', sans-serif;
-    font-size: 14px;
-    outline: none;
-    transition: border-color .2s;
+    width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; font-family: 'Syne', sans-serif; font-size: 14px;
+    outline: none; transition: border-color .2s;
   }
+  .field input:focus { border-color: var(--room-a); }
 
   .modal-foot {
-    padding: 16px 24px;
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    border-top: 1px solid var(--border);
+    padding: 16px 24px; display: flex; gap: 10px;
+    justify-content: flex-end; border-top: 1px solid var(--border);
   }
 
   .btn-cancel {
-    padding: 9px 18px;
-    background: var(--bg);
-    border: 1.5px solid var(--border);
-    border-radius: 8px;
-    font-family: 'Syne', sans-serif;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background .15s;
+    padding: 9px 18px; background: var(--bg);
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 600;
+    font-size: 13px; cursor: pointer; transition: background .15s;
   }
   .btn-cancel:hover { background: var(--border); }
 
   .btn-add {
-    padding: 9px 20px;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
-    color: #fff;
-    transition: opacity .2s;
+    padding: 9px 20px; border: none; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 13px; cursor: pointer; color: #fff;
+    transition: opacity .2s; display: flex; align-items: center; gap: 8px;
   }
   .btn-add:hover { opacity: .85; }
+  .btn-add:disabled { opacity: .5; cursor: not-allowed; }
 
-  .count-badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    padding: 1px 7px;
-    border-radius: 20px;
-    margin-left: 6px;
-    font-weight: 500;
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    padding: 12px 20px; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-weight: 600; font-size: 13px;
+    color: #fff; z-index: 999; opacity: 0; transform: translateY(10px);
+    transition: all .3s; pointer-events: none;
   }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #059669; }
+  .toast.error { background: #dc2626; }
 </style>
 </head>
 <body>
@@ -327,70 +269,66 @@
     <div class="logo">Booking <span>Manager</span></div>
     <div class="subtitle">// conference room & zoom call scheduler</div>
   </div>
-  <button class="export-btn" onclick="exportExcel()">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Export Excel
-  </button>
 </header>
+
+<div class="config-bar">
+  <label>🔗 APPS SCRIPT URL:</label>
+  <input type="text" id="script-url" placeholder="Paste your Google Apps Script Web App URL here..." />
+  <button class="save-url-btn" onclick="saveUrl()">Save & Load</button>
+  <div class="config-note">⚠️ One-time setup: Paste your deployed Web App URL above and click Save & Load. The URL will be remembered in your browser.</div>
+</div>
 
 <div class="tabs">
   <button class="tab active" data-tab="room" onclick="switchTab('room')">📋 Conference Room</button>
   <button class="tab" data-tab="zoom" onclick="switchTab('zoom')">💻 Zoom Call</button>
 </div>
 
-<!-- Room Panel -->
 <div class="panel active" id="room-panel">
   <div class="panel-header">
     <div class="panel-title">
       Conference Room Booking
       <span class="badge" id="room-count">0 records</span>
     </div>
-    <button class="new-btn" onclick="openModal('room')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New
-    </button>
+    <div class="panel-actions">
+      <button class="refresh-btn" onclick="loadRecords()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+      <button class="new-btn" onclick="openModal('room')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New
+      </button>
+    </div>
   </div>
   <table>
-    <thead>
-      <tr>
-        <th>No.</th>
-        <th>Staff Name</th>
-        <th>Date &amp; Start Time</th>
-        <th>Date &amp; End Time</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="room-tbody"></tbody>
+    <thead><tr><th>No.</th><th>Staff Name</th><th>Date & Start Time</th><th>Date & End Time</th><th>Added On</th></tr></thead>
+    <tbody id="room-tbody"><tr class="loading-row"><td colspan="5">⚠️ Paste your Apps Script URL above and click Save & Load.</td></tr></tbody>
   </table>
 </div>
 
-<!-- Zoom Panel -->
 <div class="panel" id="zoom-panel">
   <div class="panel-header">
     <div class="panel-title">
       Zoom Call Booking
       <span class="badge" id="zoom-count">0 records</span>
     </div>
-    <button class="new-btn" onclick="openModal('zoom')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New
-    </button>
+    <div class="panel-actions">
+      <button class="refresh-btn" onclick="loadRecords()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+      <button class="new-btn" onclick="openModal('zoom')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New
+      </button>
+    </div>
   </div>
   <table>
-    <thead>
-      <tr>
-        <th>No.</th>
-        <th>Staff Name</th>
-        <th>Date &amp; Start Time</th>
-        <th>Date &amp; End Time</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="zoom-tbody"></tbody>
+    <thead><tr><th>No.</th><th>Staff Name</th><th>Date & Start Time</th><th>Date & End Time</th><th>Added On</th></tr></thead>
+    <tbody id="zoom-tbody"><tr class="loading-row"><td colspan="5">⚠️ Paste your Apps Script URL above and click Save & Load.</td></tr></tbody>
   </table>
 </div>
 
-<!-- Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal">
     <div class="modal-head">
@@ -403,55 +341,47 @@
         <input type="text" id="f-name" placeholder="e.g. Alice Johnson" />
       </div>
       <div class="field">
-        <label>Date &amp; Start Time</label>
+        <label>Date & Start Time</label>
         <input type="datetime-local" id="f-start" />
       </div>
       <div class="field">
-        <label>Date &amp; End Time</label>
+        <label>Date & End Time</label>
         <input type="datetime-local" id="f-end" />
       </div>
     </div>
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-add" id="modal-add-btn" onclick="addRecord()">Add Record</button>
+      <button class="btn-add" id="modal-add-btn" onclick="addRecord()">
+        <span id="btn-label">Add Record</span>
+      </button>
     </div>
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-const data = {
-  room: [
-    { name: 'Alice Johnson',  start: '2026-03-10T09:00', end: '2026-03-10T10:00' },
-    { name: 'Bob Martinez',   start: '2026-03-10T10:30', end: '2026-03-10T12:00' },
-    { name: 'Carol Lee',      start: '2026-03-10T13:00', end: '2026-03-10T14:00' },
-    { name: 'David Kim',      start: '2026-03-11T09:00', end: '2026-03-11T10:30' },
-    { name: 'Eva Nguyen',     start: '2026-03-11T11:00', end: '2026-03-11T12:00' },
-    { name: 'Frank Chen',     start: '2026-03-11T14:00', end: '2026-03-11T15:30' },
-    { name: 'Grace Patel',    start: '2026-03-12T09:30', end: '2026-03-12T11:00' },
-    { name: 'Henry Brown',    start: '2026-03-12T13:00', end: '2026-03-12T14:00' },
-    { name: 'Irene Walsh',    start: '2026-03-12T15:00', end: '2026-03-12T16:00' },
-    { name: 'James Park',     start: '2026-03-13T10:00', end: '2026-03-13T11:30' },
-  ],
-  zoom: [
-    { name: 'Alice Johnson',  start: '2026-03-10T08:30', end: '2026-03-10T09:00' },
-    { name: 'Bob Martinez',   start: '2026-03-10T11:00', end: '2026-03-10T11:45' },
-    { name: 'Carol Lee',      start: '2026-03-10T14:00', end: '2026-03-10T15:00' },
-    { name: 'David Kim',      start: '2026-03-11T08:00', end: '2026-03-11T09:00' },
-    { name: 'Eva Nguyen',     start: '2026-03-11T10:00', end: '2026-03-11T10:30' },
-    { name: 'Frank Chen',     start: '2026-03-11T13:00', end: '2026-03-11T14:00' },
-    { name: 'Grace Patel',    start: '2026-03-12T08:00', end: '2026-03-12T09:30' },
-    { name: 'Henry Brown',    start: '2026-03-12T11:00', end: '2026-03-12T12:00' },
-    { name: 'Irene Walsh',    start: '2026-03-12T14:30', end: '2026-03-12T15:30' },
-    { name: 'James Park',     start: '2026-03-13T09:00', end: '2026-03-13T10:00' },
-  ]
-};
-
+let SCRIPT_URL = localStorage.getItem('bookingScriptUrl') || '';
 let activeTab = 'room';
-let editingIdx = null;
+let allRecords = [];
 
-function fmt(dtStr) {
-  if (!dtStr) return '';
-  const d = new Date(dtStr);
+if (SCRIPT_URL) {
+  document.getElementById('script-url').value = SCRIPT_URL;
+}
+
+function saveUrl() {
+  const url = document.getElementById('script-url').value.trim();
+  if (!url.startsWith('https://')) { showToast('Please enter a valid URL starting with https://', 'error'); return; }
+  SCRIPT_URL = url;
+  localStorage.setItem('bookingScriptUrl', url);
+  showToast('URL saved!', 'success');
+  loadRecords();
+}
+
+function fmt(val) {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
   const dd = String(d.getDate()).padStart(2,'0');
   const mm = String(d.getMonth()+1).padStart(2,'0');
   const yyyy = d.getFullYear();
@@ -460,9 +390,10 @@ function fmt(dtStr) {
   return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
-function render(type) {
+function renderTable(type) {
   const tbody = document.getElementById(`${type}-tbody`);
-  const rows = data[type];
+  const label = type === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking';
+  const rows = allRecords.filter(r => r['Sheet'] === label);
   tbody.innerHTML = '';
   if (rows.length === 0) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No bookings yet. Click <strong>New</strong> to add one.</td></tr>`;
@@ -471,15 +402,10 @@ function render(type) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="no">${i+1}</td>
-        <td>${r.name}</td>
-        <td>${fmt(r.start)}</td>
-        <td>${fmt(r.end)}</td>
-        <td>
-          <div class="action-btns">
-            <button class="icon-btn edit-btn" title="Edit" onclick="startEdit('${type}',${i})">✏️</button>
-            <button class="icon-btn del-btn" title="Delete" onclick="deleteRow('${type}',${i})">🗑️</button>
-          </div>
-        </td>`;
+        <td>${r['Staff Name'] || '—'}</td>
+        <td>${fmt(r['Start Time'])}</td>
+        <td>${fmt(r['End Time'])}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r['Timestamp'] || '—'}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -487,37 +413,29 @@ function render(type) {
   document.getElementById(`${type}-count`).textContent = `${count} record${count !== 1 ? 's' : ''}`;
 }
 
-function startEdit(type, idx) {
-  const r = data[type][idx];
-  const tbody = document.getElementById(`${type}-tbody`);
-  const tr = tbody.rows[idx];
-  tr.classList.add('editing');
-  tr.innerHTML = `
-    <td class="no">${idx+1}</td>
-    <td><input type="text" value="${r.name}" id="e-name"/></td>
-    <td><input type="datetime-local" value="${r.start}" id="e-start"/></td>
-    <td><input type="datetime-local" value="${r.end}" id="e-end"/></td>
-    <td>
-      <div class="action-btns">
-        <button class="icon-btn save-btn" title="Save" onclick="saveEdit('${type}',${idx})">✅</button>
-        <button class="icon-btn del-btn" title="Cancel" onclick="render('${type}')">✖️</button>
-      </div>
-    </td>`;
-}
-
-function saveEdit(type, idx) {
-  const name = document.getElementById('e-name').value.trim();
-  const start = document.getElementById('e-start').value;
-  const end = document.getElementById('e-end').value;
-  if (!name || !start || !end) { alert('Please fill all fields.'); return; }
-  data[type][idx] = { name, start, end };
-  render(type);
-}
-
-function deleteRow(type, idx) {
-  if (!confirm('Delete this booking?')) return;
-  data[type].splice(idx, 1);
-  render(type);
+async function loadRecords() {
+  if (!SCRIPT_URL) return;
+  document.querySelectorAll('.refresh-btn').forEach(b => b.classList.add('spinning'));
+  ['room','zoom'].forEach(t => {
+    document.getElementById(`${t}-tbody`).innerHTML =
+      `<tr class="loading-row"><td colspan="5"><span class="spinner"></span>Loading...</td></tr>`;
+  });
+  try {
+    const res = await fetch(SCRIPT_URL);
+    const json = await res.json();
+    if (json.status === 'success') {
+      allRecords = json.data;
+      renderTable('room');
+      renderTable('zoom');
+    } else throw new Error(json.message);
+  } catch {
+    ['room','zoom'].forEach(t => {
+      document.getElementById(`${t}-tbody`).innerHTML =
+        `<tr class="loading-row"><td colspan="5">❌ Could not load records. Check your URL and try again.</td></tr>`;
+    });
+    showToast('Failed to load records', 'error');
+  }
+  document.querySelectorAll('.refresh-btn').forEach(b => b.classList.remove('spinning'));
 }
 
 function switchTab(tab) {
@@ -527,6 +445,7 @@ function switchTab(tab) {
 }
 
 function openModal(type) {
+  if (!SCRIPT_URL) { showToast('Please set your Apps Script URL first', 'error'); return; }
   activeTab = type;
   const colors = { room: '#4472C4', zoom: '#548235' };
   document.getElementById('modal-dot').style.background = colors[type];
@@ -539,46 +458,53 @@ function openModal(type) {
   setTimeout(() => document.getElementById('f-name').focus(), 100);
 }
 
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
-function addRecord() {
+async function addRecord() {
   const name = document.getElementById('f-name').value.trim();
   const start = document.getElementById('f-start').value;
   const end = document.getElementById('f-end').value;
-  if (!name) { alert('Please enter a staff name.'); return; }
-  if (!start) { alert('Please enter a start time.'); return; }
-  if (!end) { alert('Please enter an end time.'); return; }
-  if (end <= start) { alert('End time must be after start time.'); return; }
-  data[activeTab].push({ name, start, end });
-  render(activeTab);
-  closeModal();
+  if (!name)  { showToast('Please enter a staff name', 'error'); return; }
+  if (!start) { showToast('Please enter a start time', 'error'); return; }
+  if (!end)   { showToast('Please enter an end time', 'error'); return; }
+  if (end <= start) { showToast('End time must be after start time', 'error'); return; }
+
+  const btn = document.getElementById('modal-add-btn');
+  const lbl = document.getElementById('btn-label');
+  btn.disabled = true; lbl.textContent = 'Saving...';
+
+  const sheetName = activeTab === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking';
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheet: sheetName, name, start, end })
+    });
+    allRecords.push({ 'Sheet': sheetName, 'Staff Name': name, 'Start Time': start, 'End Time': end, 'Timestamp': new Date().toLocaleString() });
+    renderTable(activeTab);
+    closeModal();
+    showToast('Booking saved to Google Sheets ✓', 'success');
+    setTimeout(loadRecords, 2500);
+  } catch {
+    showToast('Failed to save. Check your URL.', 'error');
+  }
+  btn.disabled = false; lbl.textContent = 'Add Record';
 }
 
-function exportExcel() {
-  const wb = XLSX.utils.book_new();
-  ['room','zoom'].forEach(type => {
-    const rows = [['No.','Staff Name','Date & Start Time','Date & End Time']];
-    data[type].forEach((r,i) => rows.push([i+1, r.name, fmt(r.start), fmt(r.end)]));
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:6},{wch:22},{wch:22},{wch:22}];
-    XLSX.utils.book_append_sheet(wb, ws, type === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking');
-  });
-  XLSX.writeFile(wb, 'Room_Zoom_Booking.xlsx');
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-document.getElementById('modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal')) closeModal();
-});
-
+document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
   if (e.key === 'Enter' && document.getElementById('modal').classList.contains('open')) addRecord();
 });
 
-render('room');
-render('zoom');
+if (SCRIPT_URL) loadRecords();
 </script>
 </body>
 </html>
