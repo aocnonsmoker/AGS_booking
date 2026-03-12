@@ -425,8 +425,10 @@ function fmt(val) {
 function renderTable(type) {
   const tbody = document.getElementById(`${type}-tbody`);
   const label = type === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   const rows = allRecords
     .filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2))
+    .filter(r => new Date(r['Date & Start Time'] || r['Start Time']) >= today)
     .sort((a, b) => new Date(a['Date & Start Time'] || a['Start Time']) - new Date(b['Date & Start Time'] || b['Start Time']));
   tbody.innerHTML = '';
   if (rows.length === 0) {
