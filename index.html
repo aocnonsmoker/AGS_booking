@@ -541,6 +541,11 @@ async function addRecord() {
   btn.disabled = true; lbl.textContent = 'Сохранение...';
 
   if (editingRecord) {
+    if (!editingRecord['Row']) {
+      showToast('Ошибка: не найден номер строки для обновления', 'error');
+      btn.disabled = false; lbl.textContent = 'Сохранить';
+      return;
+    }
     try {
       await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -554,6 +559,7 @@ async function addRecord() {
       renderTable(activeTab);
       closeModal();
       showToast('Запись обновлена ✓', 'success');
+      setTimeout(loadRecords, 2500);
     } catch {
       showToast('Не удалось обновить. Попробуйте позже.', 'error');
     }
@@ -598,7 +604,11 @@ function showToast(msg, type = 'success') {
 }
 
 function editRecord(index, type) {
-  const rows = allRecords.filter(r => r['Sheet'] == (type === 'room' ? 1 : 2));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const rows = allRecords
+    .filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2))
+    .filter(r => new Date(r['Date & Start Time'] || r['Start Time']) >= today)
+    .sort((a, b) => new Date(a['Date & Start Time'] || a['Start Time']) - new Date(b['Date & Start Time'] || b['Start Time']));
   const r = rows[index];
   if (!r) return;
   const colors = { room: '#4472C4', zoom: '#548235' };
@@ -616,7 +626,11 @@ function editRecord(index, type) {
 }
 
 async function removeRecord(index, type) {
-  const rows = allRecords.filter(r => r['Sheet'] == (type === 'room' ? 1 : 2));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const rows = allRecords
+    .filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2))
+    .filter(r => new Date(r['Date & Start Time'] || r['Start Time']) >= today)
+    .sort((a, b) => new Date(a['Date & Start Time'] || a['Start Time']) - new Date(b['Date & Start Time'] || b['Start Time']));
   const r = rows[index];
   if (!r) return;
   if (!confirm(`Удалить запись "${r['Staff Name'] || '—'}"?`)) return;
