@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Миграция данных — AGS</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Roboto', sans-serif; background: #f0f2f5; color: #1a1d23; min-height: 100vh; padding: 40px 24px; }
+  .card { max-width: 700px; margin: 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.1); overflow: hidden; }
+  .card-head { padding: 24px 32px; border-bottom: 1px solid #e5e7eb; }
+  .card-head h1 { font-size: 20px; font-weight: 700; }
+  .card-head p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+  .card-body { padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; background: #4472C4; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  .step-body label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; margin-bottom: 5px; }
+  input[type="text"] { width: 100%; border: 1.5px solid #d8dce3; border-radius: 8px; padding: 9px 12px; font-family: 'Roboto', sans-serif; font-size: 13px; outline: none; }
+  input[type="text"]:focus { border-color: #4472C4; }
+  .preview-box { background: #f8f9fb; border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #374151; max-height: 200px; overflow-y: auto; display: none; }
+  .preview-box.show { display: block; }
+  .preview-row { padding: 4px 0; border-bottom: 1px solid #e5e7eb; }
+  .preview-row:last-child { border-bottom: none; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px; margin-right: 6px; }
+  .badge.room { background: #dce6f1; color: #2F5496; }
+  .badge.zoom { background: #d9ead3; color: #375623; }
+  .badge.edu  { background: #FFEDD5; color: #7C2D12; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: opacity .2s; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: #4472C4; color: #fff; }
+  .btn-primary:hover:not(:disabled) { opacity: .85; }
+  .btn-success { background: #059669; color: #fff; }
+  .btn-success:hover:not(:disabled) { opacity: .85; }
+  .status { font-size: 13px; padding: 10px 14px; border-radius: 8px; display: none; }
+  .status.show { display: block; }
+  .status.info    { background: #eff6ff; color: #1d4ed8; }
+  .status.success { background: #ecfdf5; color: #065f46; }
+  .status.error   { background: #fef2f2; color: #991b1b; }
+  a.back { display: inline-block; margin-bottom: 24px; font-size: 13px; color: #4472C4; text-decoration: none; font-weight: 600; }
+  a.back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div style="max-width:700px;margin:0 auto 16px">
+  <a class="back" href="/">← Вернуться к приложению</a>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h1>Миграция данных из Google Sheets</h1>
+    <p>Перенесёт все записи из Google Таблицы в Netlify Blobs одним нажатием</p>
+  </div>
+  <div class="card-body">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <label>URL Google Apps Script (для чтения данных)</label>
+        <input type="text" id="script-url"
+          value="https://script.google.com/macros/s/AKfycbxvP-RbpuF4DWu067g5mRfrS8iLdeORyrQ9uIMPFkMYZJLXKLTZdZjhvCmohbc8BaMRbA/exec"
+          placeholder="https://script.google.com/macros/s/..." />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-load" onclick="loadFromSheets()">Загрузить данные из Sheets</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="preview-box" id="preview"></div>
+
+    <div class="actions" id="import-actions" style="display:none">
+      <button class="btn btn-success" id="btn-import" onclick="importToNetlify()">Импортировать в Netlify</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let importRecords = [];
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = `status show ${type}`;
+}
+
+function fmt(val) {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+async function loadFromSheets() {
+  const url = document.getElementById('script-url').value.trim();
+  if (!url) { setStatus('Введите URL Google Apps Script', 'error'); return; }
+
+  const btn = document.getElementById('btn-load');
+  btn.disabled = true; btn.textContent = 'Загрузка...';
+  setStatus('Запрашиваем данные из Google Sheets...', 'info');
+  document.getElementById('preview').classList.remove('show');
+  document.getElementById('import-actions').style.display = 'none';
+
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.status !== 'success') throw new Error(json.message || 'Ошибка');
+
+    const sheetNames = { 1: 'room', 2: 'zoom', 3: 'edu' };
+    const badgeLabel = { 1: 'Зал переговорной', 2: 'Zoom', 3: 'Обучения' };
+
+    importRecords = json.data.map(r => ({
+      _id: newId(),
+      Sheet: Number(r['Sheet']),
+      'Staff Name': r['Staff Name'] || '',
+      'Date & Start Time': r['Date & Start Time'] || r['Start Time'] || '',
+      'Date & End Time': r['Date & End Time'] || r['End Time'] || '',
+      Timestamp: r['Timestamp'] || new Date().toISOString()
+    }));
+
+    const preview = document.getElementById('preview');
+    if (importRecords.length === 0) {
+      setStatus('В таблице нет записей', 'info');
+    } else {
+      preview.innerHTML = importRecords.map(r => {
+        const cls = sheetNames[r['Sheet']] || 'room';
+        const lbl = badgeLabel[r['Sheet']] || '—';
+        return `<div class="preview-row"><span class="badge ${cls}">${lbl}</span><strong>${r['Staff Name'] || '—'}</strong> — ${fmt(r['Date & Start Time'])} → ${fmt(r['Date & End Time'])}</div>`;
+      }).join('');
+      preview.classList.add('show');
+      setStatus(`Найдено ${importRecords.length} записей. Проверьте список и нажмите «Импортировать».`, 'info');
+      document.getElementById('import-actions').style.display = 'flex';
+    }
+  } catch (e) {
+    setStatus('Ошибка загрузки: ' + e.message, 'error');
+  }
+
+  btn.disabled = false; btn.textContent = 'Загрузить данные из Sheets';
+}
+
+async function importToNetlify() {
+  if (!importRecords.length) return;
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true; btn.textContent = 'Импортируем...';
+  setStatus('Сохраняем данные в Netlify Blobs...', 'info');
+
+  try {
+    const res = await fetch('/api/records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bulk', records: importRecords })
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error('Сервер вернул ошибку');
+    setStatus(`✓ Успешно импортировано ${importRecords.length} записей в Netlify!`, 'success');
+    document.getElementById('import-actions').style.display = 'none';
+  } catch (e) {
+    setStatus('Ошибка импорта: ' + e.message, 'error');
+  }
+
+  btn.disabled = false; btn.textContent = 'Импортировать в Netlify';
+}
+</script>
+</body>
+</html>

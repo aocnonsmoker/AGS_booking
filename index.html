@@ -15,6 +15,9 @@
     --zoom-h: #375623;
     --zoom-a: #548235;
     --zoom-light: #d9ead3;
+    --edu-h: #7C2D12;
+    --edu-a: #EA580C;
+    --edu-light: #FFEDD5;
     --bg: #f0f2f5;
     --surface: #ffffff;
     --border: #d8dce3;
@@ -70,6 +73,7 @@
   }
   .tab.active[data-tab="room"] { color: var(--room-h); background: var(--surface); border-color: var(--border); border-bottom-color: var(--surface); }
   .tab.active[data-tab="zoom"] { color: var(--zoom-h); background: var(--surface); border-color: var(--border); border-bottom-color: var(--surface); }
+  .tab.active[data-tab="edu"] { color: var(--edu-h); background: var(--surface); border-color: var(--border); border-bottom-color: var(--surface); }
   .tab:hover:not(.active) { color: var(--text); }
 
   .panel {
@@ -97,6 +101,7 @@
   .badge { font-family: 'Roboto', sans-serif; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
   #room-panel .badge { background: var(--room-light); color: var(--room-h); }
   #zoom-panel .badge { background: var(--zoom-light); color: var(--zoom-h); }
+  #edu-panel .badge { background: var(--edu-light); color: var(--edu-h); }
 
   .panel-actions { display: flex; gap: 8px; align-items: center; }
 
@@ -123,6 +128,8 @@
   #room-panel .new-btn:hover { box-shadow: 0 4px 16px rgba(68,114,196,.45); }
   #zoom-panel .new-btn { background: var(--zoom-a); color: #fff; box-shadow: 0 2px 8px rgba(84,130,53,.35); }
   #zoom-panel .new-btn:hover { box-shadow: 0 4px 16px rgba(84,130,53,.45); }
+  #edu-panel .new-btn { background: var(--edu-a); color: #fff; box-shadow: 0 2px 8px rgba(234,88,12,.35); }
+  #edu-panel .new-btn:hover { box-shadow: 0 4px 16px rgba(234,88,12,.45); }
 
   .zoom-link-btn {
     display: flex; align-items: center; gap: 5px;
@@ -137,6 +144,7 @@
   thead tr { font-size: 11px; font-family: 'Roboto', sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #fff; }
   #room-panel thead tr { background: var(--room-a); }
   #zoom-panel thead tr { background: var(--zoom-a); }
+  #edu-panel thead tr { background: var(--edu-a); }
   th { padding: 12px 16px; text-align: left; font-weight: 500; }
   th:first-child, td:first-child { width: 56px; text-align: center; }
 
@@ -311,6 +319,7 @@
 <div class="tabs">
   <button class="tab active" data-tab="room" onclick="switchTab('room')">📋 Зал переговорной</button>
   <button class="tab" data-tab="zoom" onclick="switchTab('zoom')">💻 Zoom конференция</button>
+  <button class="tab" data-tab="edu" onclick="switchTab('edu')">📚 Обучения</button>
 </div>
 
 <div class="panel active" id="room-panel">
@@ -361,6 +370,28 @@
   </table>
 </div>
 
+<div class="panel" id="edu-panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span class="badge" id="edu-count">0 записей</span>
+    </div>
+    <div class="panel-actions">
+      <button class="refresh-btn" onclick="loadRecords()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Обновить
+      </button>
+      <button class="new-btn" onclick="openModal('edu')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Добавить
+      </button>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>No.</th><th><strong>ФИО сотрудника</strong></th><th><strong>Дата и время начала</strong></th><th><strong>Дата и время окончания</strong></th><th><strong>Действие</strong></th></tr></thead>
+    <tbody id="edu-tbody"><tr class="loading-row"><td colspan="5"><span class="spinner"></span>Загрузка...</td></tr></tbody>
+  </table>
+</div>
+
 <div class="modal-backdrop" id="modal">
   <div class="modal">
     <div class="modal-head">
@@ -393,10 +424,18 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxvP-RbpuF4DWu067g5mRfrS8iLdeORyrQ9uIMPFkMYZJLXKLTZdZjhvCmohbc8BaMRbA/exec';
+const API = '/api/records';
 let activeTab = 'room';
 let allRecords = [];
 let editingRecord = null;
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function post(body) {
+  return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
 
 function toDatetimeLocal(val) {
   if (!val) return '';
@@ -424,12 +463,12 @@ function fmt(val) {
 
 function renderTable(type) {
   const tbody = document.getElementById(`${type}-tbody`);
-  const label = type === 'room' ? 'Conference Room Booking' : 'Zoom Call Booking';
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const num = type === 'room' ? 1 : type === 'zoom' ? 2 : 3;
   const rows = allRecords
-    .filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2))
-    .filter(r => new Date(r['Date & Start Time'] || r['Start Time']) >= today)
-    .sort((a, b) => new Date(a['Date & Start Time'] || a['Start Time']) - new Date(b['Date & Start Time'] || b['Start Time']));
+    .filter(r => r['Sheet'] == num)
+    .filter(r => new Date(r['Date & Start Time']) >= today)
+    .sort((a, b) => new Date(a['Date & Start Time']) - new Date(b['Date & Start Time']));
   tbody.innerHTML = '';
   if (rows.length === 0) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Еще нет записей. Нажмите <strong>Добавить</strong></td></tr>`;
@@ -439,15 +478,15 @@ function renderTable(type) {
       tr.innerHTML = `
         <td class="no">${i+1}</td>
         <td data-label="ФИО сотрудника">${r['Staff Name'] || '—'}</td>
-        <td data-label="Начало">${fmt(r['Date & Start Time'] || r['Start Time'])}</td>
-        <td data-label="Окончание">${fmt(r['Date & End Time'] || r['End Time'])}</td>
+        <td data-label="Начало">${fmt(r['Date & Start Time'])}</td>
+        <td data-label="Окончание">${fmt(r['Date & End Time'])}</td>
         <td data-label="Действие">
           <div class="action-btns">
-            <button class="btn-edit" onclick="editRecord(${i}, '${type}')">
+            <button class="btn-edit" onclick="editRecord('${r._id}', '${type}')">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Изменить
             </button>
-            <button class="btn-remove" onclick="removeRecord(${i}, '${type}')">
+            <button class="btn-remove" onclick="removeRecord('${r._id}')">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
               Удалить
             </button>
@@ -461,24 +500,21 @@ function renderTable(type) {
 }
 
 async function loadRecords() {
-  if (!SCRIPT_URL) return;
   document.querySelectorAll('.refresh-btn').forEach(b => b.classList.add('spinning'));
-  ['room','zoom'].forEach(t => {
+  ['room','zoom','edu'].forEach(t => {
     document.getElementById(`${t}-tbody`).innerHTML =
       `<tr class="loading-row"><td colspan="5"><span class="spinner"></span>Загрузка...</td></tr>`;
   });
   try {
-    const res = await fetch(SCRIPT_URL);
-    const json = await res.json();
-    if (json.status === 'success') {
-      allRecords = json.data;
-      renderTable('room');
-      renderTable('zoom');
-    } else throw new Error(json.message);
+    const res = await fetch(API);
+    allRecords = await res.json();
+    renderTable('room');
+    renderTable('zoom');
+    renderTable('edu');
   } catch {
-    ['room','zoom'].forEach(t => {
+    ['room','zoom','edu'].forEach(t => {
       document.getElementById(`${t}-tbody`).innerHTML =
-        `<tr class="loading-row"><td colspan="5">❌ Не удалось загрузить записи. Попробуйте позже.</td></tr>`;
+        `<tr class="loading-row"><td colspan="5">❌ Не удалось загрузить записи.</td></tr>`;
     });
     showToast('Не удалось загрузить записи', 'error');
   }
@@ -493,9 +529,9 @@ function switchTab(tab) {
 
 function openModal(type) {
   activeTab = type;
-  const colors = { room: '#4472C4', zoom: '#548235' };
+  const colors = { room: '#4472C4', zoom: '#548235', edu: '#EA580C' };
   document.getElementById('modal-dot').style.background = colors[type];
-  document.getElementById('modal-title').textContent = type === 'room' ? 'Зал переговорной' : 'Zoom конференция';
+  document.getElementById('modal-title').textContent = type === 'room' ? 'Зал переговорной' : type === 'zoom' ? 'Zoom конференция' : 'Обучения';
   document.getElementById('modal-add-btn').style.background = colors[type];
   editingRecord = null;
   document.getElementById('f-name').value = '';
@@ -517,22 +553,17 @@ async function addRecord() {
   if (!end)   { showToast('Пожалуйста заполните время окончания', 'error'); return; }
   if (end <= start) { showToast('Время окончания должно быть позже начала', 'error'); return; }
 
-  const sheetNum = activeTab === 'room' ? 1 : 2;
-  const newStart = new Date(start);
-  const newEnd = new Date(end);
+  const sheetNum = activeTab === 'room' ? 1 : activeTab === 'zoom' ? 2 : 3;
+  const newStart = new Date(start), newEnd = new Date(end);
   const conflict = allRecords.find(r => {
     if (r === editingRecord) return false;
     if (r['Sheet'] != sheetNum) return false;
-    const rStart = new Date(r['Date & Start Time'] || r['Start Time']);
-    const rEnd = new Date(r['Date & End Time'] || r['End Time']);
-    if (isNaN(rStart) || isNaN(rEnd)) return false;
-    return newStart < rEnd && newEnd > rStart;
+    const rS = new Date(r['Date & Start Time']), rE = new Date(r['Date & End Time']);
+    if (isNaN(rS) || isNaN(rE)) return false;
+    return newStart < rE && newEnd > rS;
   });
   if (conflict) {
-    const who = conflict['Staff Name'] || '—';
-    const from = fmt(conflict['Date & Start Time'] || conflict['Start Time']);
-    const to = fmt(conflict['Date & End Time'] || conflict['End Time']);
-    showToast(`Занято: ${who} (${from} – ${to})`, 'error');
+    showToast(`Занято: ${conflict['Staff Name'] || '—'} (${fmt(conflict['Date & Start Time'])} – ${fmt(conflict['Date & End Time'])})`, 'error');
     return;
   }
 
@@ -540,49 +571,59 @@ async function addRecord() {
   const lbl = document.getElementById('btn-label');
   btn.disabled = true; lbl.textContent = 'Сохранение...';
 
-  if (editingRecord) {
-    if (!editingRecord['Row']) {
-      showToast('Ошибка: не найден номер строки для обновления', 'error');
-      btn.disabled = false; lbl.textContent = 'Сохранить';
-      return;
-    }
-    try {
-      await fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update', row: editingRecord['Row'], name, start, end })
-      });
+  try {
+    if (editingRecord) {
       editingRecord['Staff Name'] = name;
       editingRecord['Date & Start Time'] = start;
       editingRecord['Date & End Time'] = end;
+      await post({ action: 'update', record: editingRecord });
       renderTable(activeTab);
       closeModal();
       showToast('Запись обновлена ✓', 'success');
-      setTimeout(loadRecords, 2500);
-    } catch {
-      showToast('Не удалось обновить. Попробуйте позже.', 'error');
+    } else {
+      const record = { _id: newId(), Sheet: sheetNum, 'Staff Name': name, 'Date & Start Time': start, 'Date & End Time': end, Timestamp: new Date().toISOString() };
+      await post({ action: 'add', record });
+      allRecords.push(record);
+      renderTable(activeTab);
+      closeModal();
+      showToast('Запись сохранена ✓', 'success');
     }
-    btn.disabled = false; lbl.textContent = 'Сохранить';
-    return;
-  }
-
-  try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet: sheetNum, name, start, end })
-    });
-    allRecords.push({ 'Sheet': sheetNum, 'Staff Name': name, 'Date & Start Time': start, 'Date & End Time': end, 'Timestamp': new Date().toLocaleString() });
-    renderTable(activeTab);
-    closeModal();
-    showToast('Запись сохранена ✓', 'success');
-    setTimeout(loadRecords, 2500);
   } catch {
     showToast('Не удалось сохранить. Попробуйте позже.', 'error');
   }
-  btn.disabled = false; lbl.textContent = 'Add Record';
+
+  btn.disabled = false; lbl.textContent = editingRecord ? 'Сохранить' : 'Записать';
+}
+
+function editRecord(id, type) {
+  const r = allRecords.find(x => x._id === id);
+  if (!r) return;
+  const colors = { room: '#4472C4', zoom: '#548235', edu: '#EA580C' };
+  activeTab = type;
+  document.getElementById('modal-dot').style.background = colors[type];
+  document.getElementById('modal-title').textContent = type === 'room' ? 'Изменить бронь комнаты' : type === 'zoom' ? 'Изменить Zoom-звонок' : 'Изменить обучение';
+  document.getElementById('modal-add-btn').style.background = colors[type];
+  editingRecord = r;
+  document.getElementById('f-name').value = r['Staff Name'] || '';
+  document.getElementById('f-start').value = toDatetimeLocal(r['Date & Start Time']);
+  document.getElementById('f-end').value = toDatetimeLocal(r['Date & End Time']);
+  document.getElementById('btn-label').textContent = 'Сохранить';
+  document.getElementById('modal').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 100);
+}
+
+async function removeRecord(id) {
+  const r = allRecords.find(x => x._id === id);
+  if (!r) return;
+  if (!confirm(`Удалить запись "${r['Staff Name'] || '—'}"?`)) return;
+  try {
+    await post({ action: 'delete', id });
+    allRecords.splice(allRecords.indexOf(r), 1);
+    renderTable(activeTab);
+    showToast('Запись удалена ✓', 'success');
+  } catch {
+    showToast('Не удалось удалить. Попробуйте позже.', 'error');
+  }
 }
 
 function copyZoomLink(btn) {
@@ -601,52 +642,6 @@ function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
-}
-
-function editRecord(index, type) {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const rows = allRecords
-    .filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2))
-    .filter(r => new Date(r['Date & Start Time'] || r['Start Time']) >= today)
-    .sort((a, b) => new Date(a['Date & Start Time'] || a['Start Time']) - new Date(b['Date & Start Time'] || b['Start Time']));
-  const r = rows[index];
-  if (!r) return;
-  const colors = { room: '#4472C4', zoom: '#548235' };
-  activeTab = type;
-  document.getElementById('modal-dot').style.background = colors[type];
-  document.getElementById('modal-title').textContent = type === 'room' ? 'Изменить бронь комнаты' : 'Изменить Zoom-звонок';
-  document.getElementById('modal-add-btn').style.background = colors[type];
-  editingRecord = r;
-  document.getElementById('f-name').value = r['Staff Name'] || '';
-  document.getElementById('f-start').value = toDatetimeLocal(r['Date & Start Time'] || r['Start Time']);
-  document.getElementById('f-end').value = toDatetimeLocal(r['Date & End Time'] || r['End Time']);
-  document.getElementById('btn-label').textContent = 'Сохранить';
-  document.getElementById('modal').classList.add('open');
-  setTimeout(() => document.getElementById('f-name').focus(), 100);
-}
-
-async function removeRecord(index, type) {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const rows = allRecords
-    .filter(r => r['Sheet'] == (type === 'room' ? 1 : 2) || r['Sheet'] === String(type === 'room' ? 1 : 2))
-    .filter(r => new Date(r['Date & Start Time'] || r['Start Time']) >= today)
-    .sort((a, b) => new Date(a['Date & Start Time'] || a['Start Time']) - new Date(b['Date & Start Time'] || b['Start Time']));
-  const r = rows[index];
-  if (!r) return;
-  if (!confirm(`Удалить запись "${r['Staff Name'] || '—'}"?`)) return;
-  try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', row: r['Row'] })
-    });
-    allRecords.splice(allRecords.indexOf(r), 1);
-    renderTable(type);
-    showToast('Запись удалена ✓', 'success');
-  } catch {
-    showToast('Не удалось удалить. Попробуйте позже.', 'error');
-  }
 }
 
 document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
