@@ -12,7 +12,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const store = getStore({ name: 'records', consistency: 'strong' });
+    const store = getStore({ name: 'records', consistency: 'strong', siteID: process.env.NETLIFY_SITE_ID, token: process.env.NETLIFY_TOKEN });
 
     if (event.httpMethod === 'GET') {
       const data = await store.get('all', { type: 'json' });
